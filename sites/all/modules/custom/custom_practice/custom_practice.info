@@ -1,0 +1,7 @@
+name = Custom Practice 
+description = Custom module for All other custom functionality for Practice Project. 
+core = 7.x
+package= My Custom Modules Package
+version = "7.x-1.0"
+project = practice
+

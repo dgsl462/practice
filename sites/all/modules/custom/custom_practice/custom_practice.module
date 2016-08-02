@@ -1,0 +1,174 @@
+<?php
+
+function custom_practice_menu()
+{
+    $items['customForm']=array(
+    'title'=>'Custom Form For Testing',
+    'page callback'=>'drupal_get_form',
+    'page arguments'=>array('custom_practice_customForm'),
+    'access callback'=>TRUE,
+    'type'=>MENU_NORMAL_ITEM,
+    );
+    $items['ajaxform_autocomplete_callback']=array(
+    'page callback'=>'ajaxform_autocomplete_callback',
+    'type'=>MENU_CALLBACK,
+    'access callback'=>TRUE,
+    );
+    $items['custom_feed']=array(
+    'title'=>'Custom Feed Test',
+    'page callback'=>'show_jobs_feed_view',
+   // 'page arguments'=>array('custom_practice_customForm'),
+    'access callback'=>TRUE,
+    'type'=>MENU_NORMAL_ITEM,
+    );
+return $items;
+}
+
+
+function custom_practice_theme($data=array()){
+return array(
+    'custom_theme_example'=>array(
+        'variables'=>array('data'=>$data),
+        'template'=>'custom_template',
+    ),
+);    
+}
+
+function custom_practice_customForm($form, &$form_state)
+{
+    $items['name']=array(
+        '#type'=>'textfield',
+        '#title'=>'Enter Name',
+        '#ajax'=> array(
+            'callback'=>'ajax_callback_function',
+            'wrapper'=>'ajax-callback-id',
+        ),
+    );
+    $items['password']=array(
+        '#type'=>'textfield',
+        '#title'=>'Password',
+        );
+    if(isset($form_state['values']['name']))
+    {
+        $items['password']['#description']='Hi <strong>'. $form_state['values']['name'].'</strong> Please enter your password';
+    }
+    $items['password']['#prefix']= '<div id= "ajax-callback-id">';
+    $items['password']['#suffix']= '</div>';
+    $default = !empty($form_state['values']['howmany_select']) ? $form_state['values']['howmany_select'] : 1;
+    $items['ref_article']=array(
+        '#title'=>'Reference Articles',
+        '#type'=>'textfield',
+        '#autocomplete_path'=>'ajaxform_autocomplete_callback',
+    );
+    $items['howmany_select'] = array(
+        '#title' => t('How many checkboxes do you want?'),
+        '#type' => 'select',
+        '#options' => array(1 => 1, 2 => 2, 3 => 3, 4 => 4),
+        '#default_value' => $default,
+        '#ajax' => array(
+          'callback' => 'ajax_example_autocheckboxes_callback',
+          'wrapper' => 'checkboxes-div',
+          'method' => 'replace',
+          'effect' => 'fade',
+        ),
+
+      );
+    $items['checkboxes_fieldset'] = array(
+        '#title' => t("Generated Checkboxes"),
+        // The prefix/suffix provide the div that we're replacing, named by
+        // #ajax['wrapper'] above.
+        '#prefix' => '<div id="checkboxes-div">',
+        '#suffix' => '</div>',
+        '#type' => 'fieldset',
+        '#description' => t('This is where we get automatically generated checkboxes'),
+      );
+
+      $num_checkboxes = isset($form_state['values']['howmany_select']) ? $form_state['values']['howmany_select'] : 1;
+      for ($i = 1; $i <= $num_checkboxes; $i++) {
+        $items['checkboxes_fieldset']["checkbox$i"] = array(
+          '#type' => 'checkbox',
+          '#title' => "Checkbox $i",
+        );
+      }
+    $items['submit']=array(
+                     '#type' => 'submit',
+                    '#value'=>t('save')
+                    );
+return $items;
+}
+
+function ajax_callback_function($form, &$form_state){
+    return $form['password'];
+}
+
+function ajax_example_autocheckboxes_callback($form, $form_state) {
+  return $form['checkboxes_fieldset'];
+}
+
+function ajaxform_autocomplete_callback($search_string='')
+{
+    $matches=array();
+    $result=db_query_range('SELECT n.title,n.nid FROM {node} n WHERE n.title LIKE :string' ,0,20,array(':string'=>'%'.db_like($search_string).'%'));
+    foreach($result as $item)
+    {       
+        $matches[$item->title]=$item->title.'(nid : '.$item->nid.')';
+    }
+    
+    drupal_json_output($matches);
+}
+
+
+function get_jobs_feed($url) {
+
+  $_curl = curl_init();
+//curl_setopt($_curl, CURLOPT_SSL_VERIFYHOST, 1);
+  curl_setopt($_curl, CURLOPT_SSL_VERIFYPEER, FALSE);
+  curl_setopt($_curl, CURLOPT_RETURNTRANSFER, TRUE);
+  curl_setopt($_curl, CURLOPT_COOKIEFILE, './cookiePath.txt');
+  curl_setopt($_curl, CURLOPT_COOKIEJAR, './cookiePath.txt');
+  curl_setopt($_curl, CURLOPT_USERAGENT, 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30; InfoPath.1)');
+  curl_setopt($_curl, CURLOPT_FOLLOWLOCATION, TRUE); //new added
+  curl_setopt($_curl, CURLOPT_URL, $url);
+  $rtn = curl_exec($_curl);
+
+//$html = @file_get_contents($rtn);
+
+$html = new simple_html_dom();
+  $html->load($rtn);
+//print_r($html);
+  //$gridtable = $html->find('.course-item-inner', 0);
+ // $arr = $gridtable->getElementsByTagName("div");
+ // print_r($arr);
+  $job_list = array();
+//  foreach ($arr as $key => $table) {
+//    $job_list[$key] = $table->plaintext;
+//  }
+foreach($html->find('.course-item-inner') as $header) {
+ $headlines[] = $header->plaintext;
+}
+  print_r($headlines);
+ //dpm();
+ // $job_list = array_chunk($job_list, 4);
+  //return $job_list;
+  return $rtn;
+}
+
+/**
+ * This function returns the array with job title and themed output using
+ * custom template for jobs.
+ *
+ */
+function show_jobs_feed_view() {
+  $url = 'http://online-learning.harvard.edu/courses';
+  $final_data["job_list"] = get_jobs_feed($url);
+  $final_data["job_url"] = $url;
+ // print_r($final_data);
+  return $final_data;
+ // return theme('custom_joblist', array('data' => $final_data));
+}
+
+
+
+
+
+?>
